@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Proyek — Gantt Chart</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo">▦</div>
+      <div>
+        <h1>Manajemen Proyek</h1>
+        <p>Perencanaan tugas berbasis Gantt Chart</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost" id="btnTim" type="button">👥 Tim</button>
+      <button class="btn btn-ghost" id="btnAnalisis" type="button">📊 Analisis</button>
+      <button class="btn btn-ghost" id="btnKalender" type="button">🗓 Kalender proyek</button>
+      <button class="btn btn-ghost" id="btnBukaSemua" type="button">Buka semua</button>
+      <button class="btn btn-ghost" id="btnTutupSemua" type="button">Tutup semua</button>
+      <button class="btn btn-primary" id="btnTambahTugas" type="button">＋ Tugas baru</button>
+    </div>
+  </header>
+
+  <section class="stats" id="stats" aria-live="polite"></section>
+
+  <main class="gantt-card">
+    <div class="gantt" id="gantt">
+      <div class="gantt-header">
+        <div class="task-head">
+          <span class="th th-toggle"></span>
+          <span class="th th-name">Nama tugas</span>
+          <span class="th th-prio">Prioritas</span>
+          <span class="th th-start">Mulai</span>
+          <span class="th th-end">Selesai</span>
+          <span class="th th-dur">Durasi</span>
+          <span class="th th-tim">Tim</span>
+          <span class="th th-pred">Pendahulu</span>
+          <span class="th th-act">Aksi</span>
+        </div>
+        <div class="timeline-head">
+          <div class="months" id="monthHeader"></div>
+          <div class="days" id="dayHeader"></div>
+        </div>
+      </div>
+
+      <div class="gantt-body">
+        <div class="task-rows" id="taskRows"></div>
+        <div class="timeline-body" id="timelineBody">
+          <div class="timeline-bg" id="timelineBg"></div>
+          <div class="timeline-rows" id="timelineRows"></div>
+          <svg class="links" id="linkSvg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <form class="modal" id="taskForm" novalidate>
+      <div class="modal-head">
+        <h2 id="modalTitle">Tambah tugas</h2>
+        <button type="button" class="icon-btn icon-btn-lg" id="btnTutupModal" aria-label="Tutup">✕</button>
+      </div>
+
+      <div class="field">
+        <label for="fNama">Nama tugas</label>
+        <input id="fNama" type="text" maxlength="80" placeholder="Contoh: Riset kebutuhan" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="fInduk">Tugas induk</label>
+        <select id="fInduk"></select>
+        <small class="hint">Kosongkan jika ini adalah tugas utama.</small>
+      </div>
+
+      <div class="field">
+        <label for="fPendahulu">Tugas pendahulu (predecessor)</label>
+        <select id="fPendahulu"></select>
+        <small class="hint">Jika dipilih, tanggal mulai tugas ini dihitung otomatis dari tugas pendahulu.</small>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="fLink">Jenis kaitan</label>
+          <select id="fLink">
+            <option value="FS">FS — Finish to Start</option>
+            <option value="SS">SS — Start to Start</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fJeda">Jeda (hari kerja)</label>
+          <input id="fJeda" type="number" min="0" max="365" step="1" value="0">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="fMulai">Tanggal mulai</label>
+          <input id="fMulai" type="date">
+          <small class="hint" id="hintMulai">Tanggal awal rencana.</small>
+        </div>
+        <div class="field">
+          <label for="fDurasi">Durasi (hari kerja)</label>
+          <input id="fDurasi" type="number" min="1" max="730" step="1" value="3">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Tanggal selesai (otomatis)</label>
+        <div class="readonly" id="fSelesai">—</div>
+        <small class="hint">Sabtu dan Minggu tidak dihitung sebagai hari kerja.</small>
+      </div>
+
+      <div class="field">
+        <label>Estimasi PERT (opsional)</label>
+        <div class="field-row">
+          <div><label for="fOpt">Optimistik</label><input id="fOpt" type="number" min="0" step="0.5" placeholder="—"></div>
+          <div><label for="fMost">Paling mungkin</label><input id="fMost" type="number" min="0" step="0.5" placeholder="—"></div>
+          <div><label for="fPes">Pesimis</label><input id="fPes" type="number" min="0" step="0.5" placeholder="—"></div>
+        </div>
+        <small class="hint">Dalam hari kerja; wajib diisi lengkap atau dikosongkan semua. TE = (O + 4M + P)/6.</small>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="fPrioritas">Prioritas</label>
+          <select id="fPrioritas">
+            <option value="tinggi">Tinggi</option>
+            <option value="sedang" selected>Sedang</option>
+            <option value="rendah">Rendah</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fWarna">Warna indikator</label>
+          <div class="color-row">
+            <input id="fWarna" type="color" value="#3b82f6">
+            <div class="swatches" id="swatches"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Alokasi anggota tim</label>
+        <div class="alokasi-list" id="alokasiList"></div>
+      </div>
+
+      <p class="form-error" id="formError" hidden></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="btnBatal">Batal</button>
+        <button type="submit" class="btn btn-primary">Simpan tugas</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal-overlay" id="kalOverlay" hidden>
+    <form class="modal" id="kalForm" novalidate>
+      <div class="modal-head">
+        <h2>Kalender proyek</h2>
+        <button type="button" class="icon-btn icon-btn-lg" id="btnTutupKal" aria-label="Tutup">✕</button>
+      </div>
+
+      <div class="field">
+        <label>Hari akhir pekan / tidak bekerja</label>
+        <div class="day-toggles" id="dayToggles"></div>
+        <small class="hint">Hari yang dicentang tidak dihitung sebagai hari kerja (durasi &amp; jeda melewati hari ini).</small>
+      </div>
+
+      <div class="field">
+        <label for="fTanggalLibur">Hari libur khusus</label>
+        <div class="holiday-add">
+          <input id="fTanggalLibur" type="date">
+          <button type="button" class="btn btn-ghost" id="btnTambahLibur">Tambah</button>
+        </div>
+        <ul class="holiday-list" id="daftarLibur"></ul>
+        <small class="hint">Tanggal merah ini juga tidak dihitung sebagai hari kerja.</small>
+      </div>
+
+      <p class="form-error" id="kalError" hidden></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="btnBatalKal">Batal</button>
+        <button type="submit" class="btn btn-primary">Simpan kalender</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal-overlay" id="timOverlay" hidden>
+    <form class="modal" id="timForm" novalidate>
+      <div class="modal-head">
+        <h2 id="timJudul">Tambah anggota tim</h2>
+        <button type="button" class="icon-btn icon-btn-lg" id="btnTutupTim" aria-label="Tutup">✕</button>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="gNama">Nama lengkap</label>
+          <input id="gNama" type="text" maxlength="60" placeholder="Contoh: Budi Santoso" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="gEmail">Email</label>
+          <input id="gEmail" type="email" maxlength="80" placeholder="nama@perusahaan.com" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="gPeran">Peran</label>
+          <input id="gPeran" type="text" list="daftarPeran" maxlength="40" placeholder="Contoh: Developer" autocomplete="off">
+          <datalist id="daftarPeran">
+            <option value="Project Manager"></option>
+            <option value="Developer"></option>
+            <option value="Designer"></option>
+            <option value="QA Engineer"></option>
+            <option value="Analyst"></option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="gGaji">Gaji (Rp / bulan)</label>
+          <input id="gGaji" type="number" min="0" step="50000" placeholder="0">
+        </div>
+      </div>
+
+      <p class="form-error" id="timError" hidden></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="btnBatalTim">Batal</button>
+        <button type="submit" class="btn btn-primary">Simpan anggota</button>
+      </div>
+
+      <h3 class="sub-judul">Daftar anggota (<span id="jumlahAnggota">0</span>)</h3>
+      <ul class="daftar-anggota" id="daftarAnggota"></ul>
+    </form>
+  </div>
+
+  <div class="modal-overlay" id="analisisOverlay" hidden>
+    <div class="modal modal-lebar">
+      <div class="modal-head">
+        <h2>📊 Analisis proyek</h2>
+        <button type="button" class="icon-btn icon-btn-lg" id="btnTutupAnalisis" aria-label="Tutup">✕</button>
+      </div>
+      <div id="ringkasanAnalisis" class="kartu-ringkasan"></div>
+      <h3 class="sub-judul">Jalur kritis (Critical Path)</h3>
+      <div id="jalurKritis" class="jalur-kritis"></div>
+      <h3 class="sub-judul">Diagram PERT</h3>
+      <div class="pert-scroll" id="pertScroll"></div>
+      <h3 class="sub-judul">Beban sumber daya</h3>
+      <div id="bebanSumberDaya" class="beban-sumber-daya"></div>
+      <p class="hint">CPM memakai durasi hari kerja + relasi predecessor (FS/SS + jeda). Waktu harapan PERT memakai TE = (O + 4M + P)/6 bila estimasi diisi pada tugas; jalur kritis ditandai merah.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btnTutupAnalisis2">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="script.js"></script>
+
+</body>
+</html>
